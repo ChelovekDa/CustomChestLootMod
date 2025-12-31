@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "customchestloot",
+  "version": "${version}",
+  "name": "CustomChestLoot",
+  "description": "Mod for changing chests loot",
+  "authors": [],
+  "contact": {},
+  "license": "Apache-2.0",
+  "environment": "server",
+  "entrypoints": {
+    "fabric-datagen": [
+      "ru.hcc.customchestloot.client.MainDataGenerator"
+    ],
+    "main": [
+      "ru.hcc.customchestloot.Main"
+    ]
+  },
+  "mixins": [
+    "customchestloot.mixins.json",
+    {
+      "config": "customchestloot.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
