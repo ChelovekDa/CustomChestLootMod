@@ -2,6 +2,7 @@ package ru.hcc.customchestloot.util;
 
 import net.fabricmc.loader.api.FabricLoader;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.json.simple.*;
 import org.json.simple.parser.JSONParser;
 import ru.hcc.customchestloot.Main;
@@ -12,9 +13,7 @@ import java.io.IOException;
 import java.lang.Number;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 
 public class FileManager {
@@ -54,21 +53,13 @@ public class FileManager {
         }
     }
 
-    public void saveRegion(Region region) {
-        HashMap<String, Region> allRegions = getAllRegions();
-
-        for (Region reg : getAllRegions().values()) {
-            if (reg.equalsIgnoreName(region)) {
-                allRegions.remove(reg.name);
-                break;
-            }
-        }
-
-        allRegions.put(region.name, region);
-
+    public void saveLT(LootTable table) {
+        Map<String, JSONObject> map = new HashMap<>();
         try {
-            Map<String, Map<String, Object>> map = new HashMap<>();
-            for (Region reg : allRegions.values()) map.put(reg.name, reg.toMap());
+            HashSet<LootTable> tables = new HashSet<>(getAllLootTables());
+            tables.add(table);
+
+            for (LootTable lootTable : new ArrayList<>(tables)) map.put(lootTable.name, lootTable.toJSON());
 
             FileWriter writer = new FileWriter(getModsConfigDirectory().resolve(FileName.REGIONS_DATA.getFileName()).toFile(), false);
             writer.write(prettyPrinting(new JSONObject(map)));
@@ -79,13 +70,12 @@ public class FileManager {
         }
     }
 
-    public void deleteRegion(Region value) {
-        HashMap<String, Region> allRegions = getAllRegions();
-        allRegions.remove(value.name);
-
+    public void deleteLT(String name) {
+        Map<String, JSONObject> map = new HashMap<>();
         try {
-            Map<String, Map<String, Object>> map = new HashMap<>();
-            for (Region reg : allRegions.values()) map.put(reg.name, reg.toMap());
+            for (LootTable lootTable : getAllLootTables()) {
+                if (!lootTable.name.equals(name)) map.put(lootTable.name, lootTable.toJSON());
+            }
 
             FileWriter writer = new FileWriter(getModsConfigDirectory().resolve(FileName.REGIONS_DATA.getFileName()).toFile(), false);
             writer.write(prettyPrinting(new JSONObject(map)));
@@ -97,32 +87,89 @@ public class FileManager {
     }
 
     @NotNull
-    public HashMap<String, Region> getAllRegions() {
-        HashMap<String, Region> result = new HashMap<>();
+    public ArrayList<String> getLootTableNames() {
+        return new ArrayList<>(readFile(FileName.REGIONS_DATA).keySet());
+    }
+
+    public int[][] getAllCords() {
+        ArrayList<int[]> arrayList = new ArrayList<>();
         JSONObject jsonObject = readFile(FileName.REGIONS_DATA);
 
-        for (Object nameKey : jsonObject.keySet()) {
-            JSONObject node = (JSONObject) jsonObject.get(nameKey);
-            Region region = new Region(0, 0, 0);
+        for (Object key : jsonObject.keySet()) {
+            JSONArray array = (JSONArray) ((JSONObject) jsonObject.get(key)).get("chests");
 
-            region.x = ((Number) node.get("x")).intValue();
-            region.y = ((Number) node.get("y")).intValue();
-            region.z = ((Number) node.get("z")).intValue();
-            region.name = String.valueOf(nameKey);
+            for (Object cordsArrays : array) {
+                JSONArray cordsArray = (JSONArray) cordsArrays;
+                int[] cords = new int[3];
 
-            if (node.get("parent") == null) region.parent = null;
-            else region.parent = String.valueOf(node.get("parent"));
+                for (int i = 0; i < cordsArray.size(); i++) cords[i] = ((Number) cordsArray.get(i)).intValue();
+                arrayList.add(cords);
+            }
+        }
 
-            ArrayList<ChestItem> items = new ArrayList<>();
-            JSONArray array = (JSONArray) node.get("items");
+        return arrayList.toArray(new int[0][]);
+    }
 
-            if (!array.isEmpty()) {
+    @Nullable
+    public LootTable getLootTable(String name) {
+        JSONObject jsonObject = readFile(FileName.REGIONS_DATA);
+
+        for (Object loottableKey : jsonObject.keySet()) {
+            if (String.valueOf(loottableKey).equals(name)) {
+
+                JSONObject node = (JSONObject) jsonObject.get(loottableKey);
+
+                JSONArray array = (JSONArray) node.get("chests");
+                ArrayList<int[]> chests = new ArrayList<>();
+
+                for (Object cordsArrays : array) {
+                    JSONArray cordsArray = (JSONArray) cordsArrays;
+                    int[] cords = new int[3];
+
+                    for (int i = 0; i < cordsArray.size(); i++) cords[i] = ((Number) cordsArray.get(i)).intValue();
+                    chests.add(cords);
+                }
+                array.clear();
+
+                array = (JSONArray) node.get("items");
+                ArrayList<ChestItem> items = new ArrayList<>();
+
                 for (Object item : array) items.add(ChestItem.of(String.valueOf(item)));
-                region.items = items;
+
+                return new LootTable(chests, items, String.valueOf(loottableKey));
             }
 
-            result.put(region.name, region);
+        }
 
+        return null;
+    }
+
+    @NotNull
+    public ArrayList<LootTable> getAllLootTables() {
+        ArrayList<LootTable> result = new ArrayList<>();
+        JSONObject jsonObject = readFile(FileName.REGIONS_DATA);
+
+        for (Object loottableKey : jsonObject.keySet()) {
+            JSONObject node = (JSONObject) jsonObject.get(loottableKey);
+
+            JSONArray array = (JSONArray) node.get("chests");
+            ArrayList<int[]> chests = new ArrayList<>();
+
+            for (Object cordsArrays : array) {
+                JSONArray cordsArray = (JSONArray) cordsArrays;
+                int[] cords = new int[3];
+
+                for (int i = 0; i < cordsArray.size(); i++) cords[i] = ((Number) cordsArray.get(i)).intValue();
+                chests.add(cords);
+            }
+            array.clear();
+
+            array = (JSONArray) node.get("items");
+            ArrayList<ChestItem> items = new ArrayList<>();
+
+            for (Object item : array) items.add(ChestItem.of(String.valueOf(item)));
+
+            result.add(new LootTable(chests, items, String.valueOf(loottableKey)));
         }
 
         return result;

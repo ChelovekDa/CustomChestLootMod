@@ -11,22 +11,18 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import ru.hcc.customchestloot.Main;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Random;
+import java.util.*;
 
 
 public class Timer extends FileManager {
 
     private final Config cfg = new Config();
-    private final FileManager fileManager = new FileManager();
     private static final Random RANDOM = new Random();
 
     private int timer;
@@ -81,73 +77,151 @@ public class Timer extends FileManager {
     }
 
     private void restoreChests(World world) {
-        HashMap<String, Region> regionHashMap = fileManager.getAllRegions();
+        for (LootTable lootTable : getAllLootTables()) {
 
-        for (String name : regionHashMap.keySet()) {
-            Region region = regionHashMap.get(name);
-            chestUpdate(region, world);
+            for (int[] cords : lootTable.chests) {
+                BlockPos pos = new BlockPos(cords[0], cords[1], cords[2]);
+
+                if (!world.getBlockState(pos).getBlock().equals(Blocks.CHEST)) {
+                    world.setBlockState(pos, Blocks.CHEST.getDefaultState());
+                }
+
+                ChestBlockEntity blockEntity = (ChestBlockEntity) world.getBlockEntity(pos);
+                assert blockEntity != null;
+
+                ArrayList<Byte> slots = new ArrayList<>();
+                for (byte i = 0; i < blockEntity.size(); i++) slots.add(i);
+                for (int i = 0; i < blockEntity.size(); i++) blockEntity.removeStack(i);
+
+                for (ChestItem chestItem : lootTable.items) {
+
+                    if (isCreating(chestItem.chance)) {
+                        Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(chestItem.id)).orElse(null);
+
+                        if (item == null) {
+                            Main.LOGGER.warn("Can't get the item '%s'. Maybe it doesn't exist.".formatted(chestItem.id));
+                            continue;
+                        }
+
+                        int slot = RANDOM.nextInt(slots.size());
+
+                        int count = chestItem.count;
+
+                        if (count > 1 && item.getDefaultStack().getMaxCount() > 1) count = RANDOM.nextInt(1, chestItem.count);
+                        else count = 1;
+
+                        try {
+                            blockEntity.setStack(slots.get(slot), new ItemStack(item, count));
+                        } catch (IndexOutOfBoundsException e) {
+                            Main.LOGGER.warn("It is not possible to add the %s item to the chest because all slots are occupied!".formatted(chestItem.id));
+                            break;
+                        }
+                        blockEntity.markDirty();
+                        slots.remove(slot);
+                    }
+                }
+                Main.LOGGER.info("The chest on %s has been successfully updated!".formatted(String.valueOf(cords[0]) + cords[1] + cords[2]));
+            }
         }
     }
 
-    public void chestUpdate(Region region, World world) {
-        HashMap<String, Region> regionHashMap = fileManager.getAllRegions();
+    public void restoreChests(LootTable lootTable, World world) {
+        for (int[] cords : lootTable.chests) {
+            BlockPos pos = new BlockPos(cords[0], cords[1], cords[2]);
 
-        BlockPos pos = new BlockPos(region.x, region.y, region.z);
-
-        if (!world.getBlockState(pos).getBlock().equals(Blocks.CHEST)) {
-            world.setBlockState(pos, Blocks.CHEST.getDefaultState());
-        }
-
-        ChestBlockEntity blockEntity = (ChestBlockEntity) world.getBlockEntity(pos);
-        assert blockEntity != null;
-
-        ArrayList<Byte> slots = new ArrayList<>();
-        for (byte i = 0; i < blockEntity.size(); i++) slots.add(i);
-
-        for (int i = 0; i < blockEntity.size(); i++) blockEntity.removeStack(i);
-
-        Region object;
-
-        if (region.parent == null) object = region;
-        else {
-            object = regionHashMap.get(region.parent);
-
-            if (object == null) {
-                object = region;
-                region.parent = null;
-                fileManager.saveRegion(region);
+            if (!world.getBlockState(pos).getBlock().equals(Blocks.CHEST)) {
+                world.setBlockState(pos, Blocks.CHEST.getDefaultState());
             }
-        }
 
-        for (ChestItem chestItem : object.items) {
+            ChestBlockEntity blockEntity = (ChestBlockEntity) world.getBlockEntity(pos);
+            assert blockEntity != null;
 
-            if (isCreating(chestItem.chance)) {
-                Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(chestItem.id)).orElse(null);
+            ArrayList<Byte> slots = new ArrayList<>();
+            for (byte i = 0; i < blockEntity.size(); i++) slots.add(i);
+            for (int i = 0; i < blockEntity.size(); i++) blockEntity.removeStack(i);
 
-                if (item == null) {
-                    Main.LOGGER.warn("Can't get the item '%s' for %s. Maybe it doesn't exist.".formatted(chestItem.id, region.name));
-                    continue;
+            for (ChestItem chestItem : lootTable.items) {
+
+                if (isCreating(chestItem.chance)) {
+                    Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(chestItem.id)).orElse(null);
+
+                    if (item == null) {
+                        Main.LOGGER.warn("Can't get the item '%s'. Maybe it doesn't exist.".formatted(chestItem.id));
+                        continue;
+                    }
+
+                    int slot = RANDOM.nextInt(slots.size());
+
+                    int count = chestItem.count;
+
+                    if (count > 1 && item.getDefaultStack().getMaxCount() > 1) count = RANDOM.nextInt(1, chestItem.count);
+                    else count = 1;
+
+                    try {
+                        blockEntity.setStack(slots.get(slot), new ItemStack(item, count));
+                    } catch (IndexOutOfBoundsException e) {
+                        Main.LOGGER.warn("It is not possible to add the %s item to the chest because all slots are occupied!".formatted(chestItem.id));
+                        break;
+                    }
+                    blockEntity.markDirty();
+                    slots.remove(slot);
                 }
+            }
+            Main.LOGGER.info("The chest on %s has been successfully updated!".formatted(String.valueOf(cords[0]) + cords[1] + cords[2]));
+        }
+    }
 
-                int slot = RANDOM.nextInt(slots.size());
+    public void chestsUpdate(ArrayList<int[]> chestCords, World world) {
+        ArrayList<LootTable> lootTables = getAllLootTables();
 
-                int count = chestItem.count;
+        for (int[] cords : chestCords) {
+            BlockPos pos = new BlockPos(cords[0], cords[1], cords[2]);
 
-                if (count > 1 && item.getDefaultStack().getMaxCount() > 1) count = RANDOM.nextInt(1, chestItem.count);
-                else count = 1;
+            if (!world.getBlockState(pos).getBlock().equals(Blocks.CHEST)) {
+                world.setBlockState(pos, Blocks.CHEST.getDefaultState());
+            }
 
-                try {
-                    blockEntity.setStack(slots.get(slot), new ItemStack(item, count));
-                } catch (IndexOutOfBoundsException e) {
-                    Main.LOGGER.warn("It is not possible to add the %s item to the %s chest because all slots are occupied!".formatted(chestItem.id, region.name));
+            ChestBlockEntity blockEntity = (ChestBlockEntity) world.getBlockEntity(pos);
+            assert blockEntity != null;
+
+            ArrayList<Byte> slots = new ArrayList<>();
+            for (byte i = 0; i < blockEntity.size(); i++) slots.add(i);
+            for (int i = 0; i < blockEntity.size(); i++) blockEntity.removeStack(i);
+
+            for (LootTable lootTable : lootTables) {
+                if (lootTable.chests.contains(cords)) {
+                    for (ChestItem chestItem : lootTable.items) {
+
+                        if (isCreating(chestItem.chance)) {
+                            Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(chestItem.id)).orElse(null);
+
+                            if (item == null) {
+                                Main.LOGGER.warn("Can't get the item '%s'. Maybe it doesn't exist.".formatted(chestItem.id));
+                                continue;
+                            }
+
+                            int slot = RANDOM.nextInt(slots.size());
+
+                            int count = chestItem.count;
+
+                            if (count > 1 && item.getDefaultStack().getMaxCount() > 1) count = RANDOM.nextInt(1, chestItem.count);
+                            else count = 1;
+
+                            try {
+                                blockEntity.setStack(slots.get(slot), new ItemStack(item, count));
+                            } catch (IndexOutOfBoundsException e) {
+                                Main.LOGGER.warn("It is not possible to add the %s item to the chest because all slots are occupied!".formatted(chestItem.id));
+                                break;
+                            }
+                            blockEntity.markDirty();
+                            slots.remove(slot);
+                        }
+                    }
+                    Main.LOGGER.info("The chest on %s has been successfully updated!".formatted(String.valueOf(cords[0]) + cords[1] + cords[2]));
                     break;
                 }
-                blockEntity.markDirty();
-                slots.remove(slot);
             }
         }
-
-        Main.LOGGER.info("The '%s' chest on %s has been successfully updated!".formatted(region.name, region.toString()));
     }
 
 }

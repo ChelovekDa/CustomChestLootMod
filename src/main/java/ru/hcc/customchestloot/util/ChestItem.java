@@ -3,8 +3,8 @@ package ru.hcc.customchestloot.util;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
-
 import java.util.Objects;
+
 
 public class ChestItem {
 
@@ -36,7 +36,7 @@ public class ChestItem {
         return Objects.hash(id, chance, count);
     }
 
-    public static boolean isValid(String itemId) {
+    private static boolean isValid(String itemId) {
         Identifier id = Identifier.tryParse(itemId);
         return id != null && Registries.ITEM.containsId(id);
     }
