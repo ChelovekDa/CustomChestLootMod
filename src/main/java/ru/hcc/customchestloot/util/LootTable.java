@@ -14,7 +14,15 @@ public class LootTable {
 
     public LootTable(ArrayList<int[]> chests, ArrayList<ChestItem> items, String name) {
         this.chests = chests;
+
+        if (items == null || items.isEmpty()) {
+            items = new ArrayList<>();
+            items.add(ChestItem.of("minecraft:stone=0.9=63"));
+            items.add(ChestItem.of("minecraft:diamond=0.9=1"));
+        }
+
         this.items = items;
+
         this.name = name;
     }
 
@@ -33,6 +41,11 @@ public class LootTable {
 
     public LootTable(String name) {
         this.name = name;
+        this.chests = new ArrayList<>();
+
+        this.items = new ArrayList<>();
+        items.add(ChestItem.of("minecraft:stone=0.9=63"));
+        items.add(ChestItem.of("minecraft:diamond=0.9=1"));
     }
 
     public JSONObject toJSON() {
@@ -42,8 +55,8 @@ public class LootTable {
         JSONArray array = new JSONArray();
         for (ChestItem item : this.items) array.add(item.toString());
         value.put("items", array);
-        array.clear();
 
+        array = new JSONArray();
         for (int[] cords : this.chests) {
             JSONArray cordsArray = new JSONArray();
             for (int num : cords) cordsArray.add(num);

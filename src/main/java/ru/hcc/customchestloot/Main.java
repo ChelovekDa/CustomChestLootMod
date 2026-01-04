@@ -4,7 +4,7 @@ import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.hcc.customchestloot.commands.CustomLootCommand;
-import ru.hcc.customchestloot.util.Timer;
+import ru.hcc.customchestloot.util.ChestManager;
 
 
 public class Main implements ModInitializer {
@@ -15,6 +15,7 @@ public class Main implements ModInitializer {
     @Override
     public void onInitialize() {
         new CustomLootCommand();
-        new Timer().start();
+        new ChestManager().startTimer();
+
     }
 }

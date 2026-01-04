@@ -14,7 +14,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import ru.hcc.customchestloot.util.*;
 import ru.hcc.customchestloot.util.Number;
-import ru.hcc.customchestloot.util.Timer;
+import ru.hcc.customchestloot.util.ChestManager;
 import java.util.*;
 
 
@@ -111,18 +111,22 @@ public class CustomLootCommand {
                         IntegerArgumentType.getInteger(context, "%s_z".formatted(Number.FIRST.getNumber()))
                 };
 
-                if (Arrays.asList(fileManager.getAllCords()).contains(cords)) {
+                if (fileManager.isCordsExisting(cords)) {
                     for (LootTable lootTable : fileManager.getAllLootTables()) {
-                        if (lootTable.chests.contains(cords)) {
-                            lootTable.chests.remove(cords);
-                            fileManager.saveLT(lootTable);
-                            context.getSource().sendMessage(Text.literal("§aСундук %s успешно удален!".formatted(String.valueOf(cords[0]) + cords[1] + cords[2])));
-                            return 0;
+                        if (fileManager.isCordsExisting(cords, lootTable.name)) {
+                            for (int[] chest : lootTable.chests) {
+                                if (chest[0] == cords[0] && chest[1] == cords[1] && chest[2] == cords[2]) {
+                                    System.out.println(lootTable.chests.remove(chest));
+                                    fileManager.saveLT(lootTable);
+                                    context.getSource().sendMessage(Text.literal("§aСундук на %d %d %d успешно удален!".formatted(cords[0], cords[1], cords[2])));
+                                    return 0;
+                                }
+                            }
                         }
                     }
                 }
                 else {
-                    context.getSource().sendMessage(Text.literal("§cНевозможно обновить сундук на %s, поскольку его не существует!".formatted(String.valueOf(cords[0]) + cords[1] + cords[2])));
+                    context.getSource().sendMessage(Text.literal("§cНевозможно обновить сундук на %d %d %d, поскольку его не существует!".formatted(cords[0], cords[1], cords[2])));
                     return -1;
                 }
 
@@ -154,14 +158,19 @@ public class CustomLootCommand {
                 ArrayList<LootTable> tables = fileManager.getAllLootTables();
 
                 for (BlockPos pos : BlockPos.iterate(min, max)) {
-                    for (LootTable lootTable : tables) if (lootTable.chests.remove( new int[] {pos.getX(), pos.getY(), pos.getZ()})) {
-                        count++;
-                        break;
+                    for (LootTable lootTable : tables) {
+                        for (int[] chest : lootTable.chests) {
+                            if (chest[0] == pos.getX() && chest[1] == pos.getY() && chest[2] == pos.getZ()) {
+                                lootTable.chests.remove(chest);
+                                count++;
+                                break;
+                            }
+                        }
                     }
                 }
 
                 for (LootTable lootTable : tables) fileManager.saveLT(lootTable);
-                context.getSource().sendMessage(Text.literal("§aУспешно удалено элементов: %s!".formatted(String.valueOf(count))));
+                context.getSource().sendMessage(Text.literal("§aУспешно удалено элементов: %d!".formatted(count)));
 
                 return 0;
 
@@ -179,8 +188,8 @@ public class CustomLootCommand {
                 String name = StringArgumentType.getString(context, "name");
 
                 if (fileManager.getLootTableNames().contains(name)) {
-                    new Timer().restoreChests(Objects.requireNonNull(fileManager.getLootTable(name)), world);
-                    context.getSource().sendMessage(Text.literal("§aТаблица %s успешно обновлена!".formatted(name)));
+                    context.getSource().sendMessage(Text.literal("§aТаблица '%s' успешно обновлена!".formatted(name)));
+                    context.getSource().sendMessage(Text.literal(new ChestManager().updateChests(Objects.requireNonNull(fileManager.getLootTable(name)), world)));
                     return 0;
                 }
                 else {
@@ -195,19 +204,18 @@ public class CustomLootCommand {
                         IntegerArgumentType.getInteger(context, "%s_z".formatted(Number.FIRST.getNumber()))
                 };
 
-                if (Arrays.asList(fileManager.getAllCords()).contains(cords)) {
+                if (fileManager.isCordsExisting(cords)) {
                     ArrayList<int[]> object = new ArrayList<>();
                     object.add(cords);
-                    new Timer().chestsUpdate(object, world);
-                    context.getSource().sendMessage(Text.literal("§aСундук %s успешно обновлен!".formatted(String.valueOf(cords[0]) + cords[1] + cords[2])));
+                    new ChestManager().updateChests(object, world);
+                    context.getSource().sendMessage(Text.literal("§aСундук на %d %d %d успешно обновлен!".formatted(cords[0], cords[1], cords[2])));
                     return 0;
                 }
 
-                context.getSource().sendMessage(Text.literal("§cНевозможно обновить сундук на %s, поскольку он не прикреплен ни к одной из таблиц лута!".formatted(String.valueOf(cords[0]) + cords[1] + cords[2])));
+                context.getSource().sendMessage(Text.literal("§cНевозможно обновить сундук на %d %d %d, поскольку он не прикреплен ни к одной из таблиц лута!".formatted(cords[0],cords[1], cords[2])));
                 return -1;
 
-            case "-region":
-
+            case "region-flag":
                 int[] first = {
                         IntegerArgumentType.getInteger(context, "%s_x".formatted(Number.FIRST.getNumber())),
                         IntegerArgumentType.getInteger(context, "%s_y".formatted(Number.FIRST.getNumber())),
@@ -230,22 +238,21 @@ public class CustomLootCommand {
                         Math.max(first[2], second[2])
                 );
 
-                int count = 0;
-                ArrayList<int[]> coordinates = (ArrayList<int[]>) Arrays.asList(fileManager.getAllCords());
                 ArrayList<int[]> blocks = new ArrayList<>();
 
                 for (BlockPos pos : BlockPos.iterate(min, max)) {
                     int[] cord = new int[] {pos.getX(), pos.getY(), pos.getZ()};
-                    if (coordinates.contains(cord)) {
-                        blocks.add(cord);
-                        count++;
+
+                    for (LootTable lootTable : fileManager.getAllLootTables()) {
+                        for (int[] placement : lootTable.chests) {
+                            if (placement[0] == cord[0] && placement[1] == cord[1] && placement[2] == cord[2]) {
+                                blocks.add(cord);
+                            }
+                        }
                     }
                 }
 
-                coordinates.clear();
-                new Timer().chestsUpdate(blocks, world);
-
-                context.getSource().sendMessage(Text.literal("§aУспешно обновлено сундуков: %s".formatted(String.valueOf(count))));
+                context.getSource().sendMessage(Text.literal(new ChestManager().updateChests(blocks, world)));
 
                 break;
         }
@@ -304,9 +311,10 @@ public class CustomLootCommand {
             );
 
             int count = 0;
-            int[][] coordinates = fileManager.getAllCords();
+            ArrayList<int[]> coordinates = fileManager.getAllCords();
             ArrayList<int[]> blocks = new ArrayList<>();
 
+            source.sendMessage(Text.literal("§aИдет обработка территории..."));
             for (BlockPos pos : BlockPos.iterate(min, max)) {
                 if (world.getBlockState(pos).getBlock().equals(Blocks.CHEST)) {
                     boolean is = false;
@@ -320,21 +328,19 @@ public class CustomLootCommand {
 
                     if (!is) {
                         blocks.add(new int[] {pos.getX(), pos.getY(), pos.getZ()});
-                        source.sendMessage(Text.literal("§aКоординаты %s сохранены.".formatted(String.valueOf(pos.getX()) + pos.getY() + pos.getZ())));
                         count++;
                     }
                 }
             }
 
-            HashSet<int[]> set = new HashSet<>(lootTable.chests);
-            set.addAll(blocks);
-            lootTable.chests = new ArrayList<>(set);
+            lootTable.chests = blocks;
 
-            if (count > 0) source.sendMessage(Text.literal("§aУспешно сохранены сундуки: %s.".formatted(count)));
+            if (count > 0) source.sendMessage(Text.literal("§aУспешно сохранены сундуки: %d.".formatted(count)));
             else source.sendMessage(Text.literal("§cНе было сохранено ни одного сундука!"));
 
         }
         fileManager.saveLT(lootTable);
+        source.sendMessage(Text.literal(new ChestManager().updateChests(lootTable, context.getSource().getWorld())));
 
         return 0;
     }

@@ -56,10 +56,12 @@ public class FileManager {
     public void saveLT(LootTable table) {
         Map<String, JSONObject> map = new HashMap<>();
         try {
-            HashSet<LootTable> tables = new HashSet<>(getAllLootTables());
-            tables.add(table);
+            for (LootTable lootTable : getAllLootTables()) {
+                if (lootTable.name.equals(table.name)) map.put(lootTable.name, table.toJSON());
+                else map.put(lootTable.name, lootTable.toJSON());
+            }
 
-            for (LootTable lootTable : new ArrayList<>(tables)) map.put(lootTable.name, lootTable.toJSON());
+            if (map.isEmpty()) map.put(table.name, table.toJSON());
 
             FileWriter writer = new FileWriter(getModsConfigDirectory().resolve(FileName.REGIONS_DATA.getFileName()).toFile(), false);
             writer.write(prettyPrinting(new JSONObject(map)));
@@ -91,7 +93,45 @@ public class FileManager {
         return new ArrayList<>(readFile(FileName.REGIONS_DATA).keySet());
     }
 
-    public int[][] getAllCords() {
+    public boolean isCordsExisting(int[] cords) {
+        JSONObject jsonObject = readFile(FileName.REGIONS_DATA);
+
+        for (Object key : jsonObject.keySet()) {
+            JSONArray array = (JSONArray) ((JSONObject) jsonObject.get(key)).get("chests");
+
+            for (Object cordsArrays : array) {
+                JSONArray cordsArray = (JSONArray) cordsArrays;
+
+                for (int i = 0; i < cordsArray.size(); i++) {
+                    if (cords[i] == ((Number) cordsArray.get(i)).intValue()) return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public boolean isCordsExisting(int[] cords, String lootTableName) {
+        JSONObject jsonObject = readFile(FileName.REGIONS_DATA);
+
+        for (Object key : jsonObject.keySet()) {
+            if (!String.valueOf(key).equals(lootTableName)) continue;
+
+            JSONArray array = (JSONArray) ((JSONObject) jsonObject.get(key)).get("chests");
+
+            for (Object cordsArrays : array) {
+                JSONArray cordsArray = (JSONArray) cordsArrays;
+
+                for (int i = 0; i < cordsArray.size(); i++) {
+                    if (cords[i] == ((Number) cordsArray.get(i)).intValue()) return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public ArrayList<int[]> getAllCords() {
         ArrayList<int[]> arrayList = new ArrayList<>();
         JSONObject jsonObject = readFile(FileName.REGIONS_DATA);
 
@@ -107,7 +147,7 @@ public class FileManager {
             }
         }
 
-        return arrayList.toArray(new int[0][]);
+        return arrayList;
     }
 
     @Nullable
@@ -162,7 +202,6 @@ public class FileManager {
                 for (int i = 0; i < cordsArray.size(); i++) cords[i] = ((Number) cordsArray.get(i)).intValue();
                 chests.add(cords);
             }
-            array.clear();
 
             array = (JSONArray) node.get("items");
             ArrayList<ChestItem> items = new ArrayList<>();
