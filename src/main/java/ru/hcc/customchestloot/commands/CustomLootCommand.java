@@ -284,7 +284,6 @@ public class CustomLootCommand {
             }
 
             lootTable.chests.add(cords);
-
             context.getSource().sendMessage(Text.literal("§aТаблица '%s' успешно сохранена с 1 сундуком!".formatted(lootTable.name)));
         }
         else {

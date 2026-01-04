@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "customchestloot",
-  "version": "2.0",
+  "version": "2.1",
   "name": "CustomChestLoot",
   "description": "Mod for changing chests loot",
   "authors": ["English (aka Horoshiy)"],
-  "contact": {"": ""},
+  "contact": {"Github": "https://github.com/ChelovekDa"},
   "license": "Apache-2.0",
   "environment": "server",
   "entrypoints": {

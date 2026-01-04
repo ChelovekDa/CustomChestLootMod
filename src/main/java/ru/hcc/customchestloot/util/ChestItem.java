@@ -17,7 +17,7 @@ public class ChestItem {
         return "%s=%s=%s".formatted(id, String.valueOf(chance), String.valueOf(count));
     }
 
-    private ChestItem(String id, float chance, byte count) {
+    protected ChestItem(String id, float chance, byte count) {
         this.id = id;
         this.chance = chance;
         this.count = count;

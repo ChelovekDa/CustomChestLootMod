@@ -1,15 +1,10 @@
 package ru.hcc.customchestloot.util;
 
-import com.mojang.serialization.DynamicOps;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.ChestBlockEntity;
-import net.minecraft.component.Component;
-import net.minecraft.component.ComponentMap;
-import net.minecraft.component.ComponentMapImpl;
-import net.minecraft.component.ComponentType;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
@@ -30,6 +25,14 @@ import java.util.*;
 
 
 public class ChestManager extends FileManager {
+
+    private static class NullChestItem extends ChestItem {
+
+        protected NullChestItem(float chance) {
+            super("minecraft:air", chance, (byte) 1);
+        }
+
+    }
 
     private final Config cfg = new Config();
     private static final Random RANDOM = new Random();
@@ -110,8 +113,37 @@ public class ChestManager extends FileManager {
         }
     }
 
-    private static boolean isCreating(float chance) {
-        return Integer.parseInt(String.valueOf(chance * 100).replace(".", "")) >= RANDOM.nextInt(100);
+    private static ArrayList<ChestItem> getCreateList(ArrayList<ChestItem> items, ArrayList<Byte> slots) {
+        ArrayList<ChestItem> results = new ArrayList<>();
+
+        float totalWeight = 0.0f;
+        for (ChestItem item : items) totalWeight += item.chance;
+
+        items.add(new NullChestItem(1 - totalWeight));
+
+        int iterationsCount = Math.min(items.size(), slots.size());
+
+        for (int i = 0; i < iterationsCount; i++) {
+            totalWeight = 0.0f;
+            for (ChestItem item : items) totalWeight += item.chance;
+
+            float randomValue = RANDOM.nextFloat() * totalWeight;
+
+            float cumulativeWeight = 0.0f;
+
+            for (ChestItem entry : items) {
+                cumulativeWeight += entry.chance;
+                if (randomValue <= cumulativeWeight) {
+                    if (!entry.id.equals("minecraft:air")) {
+                        results.add(entry);
+                        items.remove(entry);
+                    }
+                    break;
+                }
+            }
+        }
+
+        return results;
     }
 
     private void updateChest(int[] cords, World world, ArrayList<ChestItem> items) {
@@ -132,31 +164,28 @@ public class ChestManager extends FileManager {
         for (byte i = 0; i < blockEntity.size(); i++) slots.add(i);
         blockEntity.clear();
 
-        for (ChestItem chestItem : items) {
+        for (ChestItem chestItem : getCreateList((ArrayList<ChestItem>) items.clone(), slots)) {
+            Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(chestItem.id)).orElse(null);
 
-            if (isCreating(chestItem.chance)) {
-                Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(chestItem.id)).orElse(null);
-
-                if (item == null) {
-                    Main.LOGGER.warn("Can't get the item '%s'. Maybe it doesn't exist.".formatted(chestItem.id));
-                    continue;
-                }
-
-                int slot = RANDOM.nextInt(slots.size());
-
-                int count = chestItem.count;
-
-                if (count > 1 && item.getDefaultStack().getMaxCount() > 1) count = RANDOM.nextInt(1, chestItem.count);
-                else count = 1;
-
-                try {
-                    blockEntity.setStack(slots.get(slot), new ItemStack(item, count));
-                } catch (IndexOutOfBoundsException e) {
-                    Main.LOGGER.warn("It is not possible to add the %s item to the chest because all slots are occupied!".formatted(chestItem.id));
-                    break;
-                }
-                slots.remove(slot);
+            if (item == null) {
+                Main.LOGGER.warn("Can't get the item '%s'. Maybe it doesn't exist.".formatted(chestItem.id));
+                continue;
             }
+
+            int slot = RANDOM.nextInt(slots.size());
+
+            int count = chestItem.count;
+
+            if (count > 1 && item.getDefaultStack().getMaxCount() > 1) count = RANDOM.nextInt(1, chestItem.count);
+            else count = 1;
+
+            try {
+                blockEntity.setStack(slots.get(slot), new ItemStack(item, count));
+            } catch (IndexOutOfBoundsException e) {
+                Main.LOGGER.warn("It is not possible to add the %s item to the chest because all slots are occupied!".formatted(chestItem.id));
+                break;
+            }
+            slots.remove(slot);
         }
         blockEntity.markDirty();
     }

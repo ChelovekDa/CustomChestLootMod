@@ -57,11 +57,11 @@ public class FileManager {
         Map<String, JSONObject> map = new HashMap<>();
         try {
             for (LootTable lootTable : getAllLootTables()) {
-                if (lootTable.name.equals(table.name)) map.put(lootTable.name, table.toJSON());
+                if (lootTable.equals(table)) map.put(table.name, table.toJSON());
                 else map.put(lootTable.name, lootTable.toJSON());
             }
 
-            if (map.isEmpty()) map.put(table.name, table.toJSON());
+            if (map.isEmpty() || !map.containsKey(table.name)) map.put(table.name, table.toJSON());
 
             FileWriter writer = new FileWriter(getModsConfigDirectory().resolve(FileName.REGIONS_DATA.getFileName()).toFile(), false);
             writer.write(prettyPrinting(new JSONObject(map)));
