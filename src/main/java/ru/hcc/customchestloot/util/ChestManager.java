@@ -119,11 +119,12 @@ public class ChestManager extends FileManager {
         float totalWeight = 0.0f;
         for (ChestItem item : items) totalWeight += item.chance;
 
-        items.add(new NullChestItem(1 - totalWeight));
+        ChestItem nullItem = new NullChestItem(1 - totalWeight);
 
-        int iterationsCount = Math.min(items.size(), slots.size());
+        if (nullItem.chance <= 0) nullItem.chance = 0.99f;
+        items.add(nullItem);
 
-        for (int i = 0; i < iterationsCount; i++) {
+        for (int i = 0; i < items.size(); i++) {
             totalWeight = 0.0f;
             for (ChestItem item : items) totalWeight += item.chance;
 
@@ -140,6 +141,14 @@ public class ChestManager extends FileManager {
                     }
                     break;
                 }
+            }
+        }
+
+        int removingCount = results.size() - slots.size();
+        if (removingCount > 0) {
+            while (removingCount > 0) {
+                results.remove(RANDOM.nextInt(results.size()));
+                removingCount--;
             }
         }
 
