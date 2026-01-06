@@ -34,6 +34,115 @@ public class ChestManager extends FileManager {
 
     }
 
+    private static class ItemGenerator {
+
+        private static ArrayList<ChestItem> generate(ArrayList<ChestItem> items, int slotsSize) {
+            return setItemsCount(getCreateList(items, slotsSize), slotsSize);
+        }
+
+        private static ArrayList<ChestItem> setItemsCount(ArrayList<ChestItem> items, int slotsSize) {
+            ArrayList<ChestItem> result = new ArrayList<>();
+
+            byte amount = (byte) (((byte) slotsSize) - ((byte) items.size()));
+
+            if (amount <= 0) return items;
+
+            items.sort(Comparator.comparingInt(item -> item.count));
+            Collections.reverse(items);
+
+            for (ChestItem chestItem : items) {
+                if (amount >= 1) {
+                    if (chestItem.count <= 2) result.add(chestItem);
+                    else {
+                        int chance = RANDOM.nextInt(1, 11);
+
+                        if (chance <= 7) {
+                            byte count;
+
+                            if (chestItem.count % 3 == 0) {
+                                count = (byte) (chestItem.count / 3);
+                                for (int i = 0; i < 3; i++) result.add(new ChestItem(chestItem, count));
+                                amount -= 2;
+                                continue;
+                            }
+
+                            else if (chestItem.count == 4) {
+                                result.add(new ChestItem(chestItem, (byte) 3));
+                                result.add(new ChestItem(chestItem, (byte) 1));
+                                amount--;
+                                continue;
+                            }
+
+                            byte bound = (byte) (((byte) Math.round((float) chestItem.count / 3) - 1) * 2);
+
+                            count = (byte) RANDOM.nextInt(1, bound);
+                            result.add(new ChestItem(chestItem, (byte) (chestItem.count - count)));
+                            result.add(new ChestItem(chestItem, count));
+                            amount--;
+                        }
+                        else result.add(chestItem);
+                    }
+                }
+                else result.add(chestItem);
+            }
+
+            int removingSize = result.size() - slotsSize;
+            if (removingSize > 0) {
+                while (removingSize > 0) {
+                    result = setItemsCount(result, slotsSize);
+                    removingSize = result.size() - slotsSize;
+                }
+            }
+
+            Collections.shuffle(result);
+
+            return result;
+        }
+
+        private static ArrayList<ChestItem> getCreateList(ArrayList<ChestItem> items, int slotsSize) {
+            ArrayList<ChestItem> results = new ArrayList<>();
+
+            float totalWeight = 0.0f;
+            for (ChestItem item : items) totalWeight += item.chance;
+
+            ChestItem nullItem = new NullChestItem(1 - totalWeight);
+
+            if (nullItem.chance <= 0) nullItem.chance = 0.99f;
+            items.add(nullItem);
+
+            for (int i = 0; i < items.size(); i++) {
+                totalWeight = 0.0f;
+                for (ChestItem item : items) totalWeight += item.chance;
+
+                float randomValue = RANDOM.nextFloat() * totalWeight;
+
+                float cumulativeWeight = 0.0f;
+
+                for (ChestItem entry : items) {
+                    cumulativeWeight += entry.chance;
+                    if (randomValue <= cumulativeWeight) {
+                        if (!entry.id.equals("minecraft:air")) {
+                            results.add(entry);
+                            items.remove(entry);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            int removingCount = results.size() - slotsSize;
+            if (removingCount > 0) {
+                while (removingCount > 0) {
+                    results = getCreateList(results, slotsSize);
+                    removingCount = results.size() - slotsSize;
+                }
+            }
+
+            return results;
+        }
+
+    }
+
     private final Config cfg = new Config();
     private static final Random RANDOM = new Random();
     private final FileManager fileManager = new FileManager();
@@ -113,48 +222,6 @@ public class ChestManager extends FileManager {
         }
     }
 
-    private static ArrayList<ChestItem> getCreateList(ArrayList<ChestItem> items, ArrayList<Byte> slots) {
-        ArrayList<ChestItem> results = new ArrayList<>();
-
-        float totalWeight = 0.0f;
-        for (ChestItem item : items) totalWeight += item.chance;
-
-        ChestItem nullItem = new NullChestItem(1 - totalWeight);
-
-        if (nullItem.chance <= 0) nullItem.chance = 0.99f;
-        items.add(nullItem);
-
-        for (int i = 0; i < items.size(); i++) {
-            totalWeight = 0.0f;
-            for (ChestItem item : items) totalWeight += item.chance;
-
-            float randomValue = RANDOM.nextFloat() * totalWeight;
-
-            float cumulativeWeight = 0.0f;
-
-            for (ChestItem entry : items) {
-                cumulativeWeight += entry.chance;
-                if (randomValue <= cumulativeWeight) {
-                    if (!entry.id.equals("minecraft:air")) {
-                        results.add(entry);
-                        items.remove(entry);
-                    }
-                    break;
-                }
-            }
-        }
-
-        int removingCount = results.size() - slots.size();
-        if (removingCount > 0) {
-            while (removingCount > 0) {
-                results.remove(RANDOM.nextInt(results.size()));
-                removingCount--;
-            }
-        }
-
-        return results;
-    }
-
     private void updateChest(int[] cords, World world, ArrayList<ChestItem> items) {
         BlockPos pos = new BlockPos(cords[0], cords[1], cords[2]);
 
@@ -169,27 +236,21 @@ public class ChestManager extends FileManager {
         nbtCompound.putString("CustomName", "Loot");
         blockEntity.read(nbtCompound, world.getRegistryManager());
 
-        ArrayList<Byte> slots = new ArrayList<>();
-        for (byte i = 0; i < blockEntity.size(); i++) slots.add(i);
         blockEntity.clear();
 
-        for (ChestItem chestItem : getCreateList((ArrayList<ChestItem>) items.clone(), slots)) {
-            Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(chestItem.id)).orElse(null);
+        ArrayList<Byte> slots = new ArrayList<>();
+        for (byte i = 0; i < blockEntity.size(); i++) slots.add(i);
+        int size = slots.size();
 
-            if (item == null) {
-                Main.LOGGER.warn("Can't get the item '%s'. Maybe it doesn't exist.".formatted(chestItem.id));
-                continue;
-            }
+        ArrayList<ChestItem> gotItems = ItemGenerator.generate((ArrayList<ChestItem>) items.clone(), size);
+
+        for (ChestItem chestItem : gotItems) {
+            Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(chestItem.id)).orElse(null);
 
             int slot = RANDOM.nextInt(slots.size());
 
-            int count = chestItem.count;
-
-            if (count > 1 && item.getDefaultStack().getMaxCount() > 1) count = RANDOM.nextInt(1, chestItem.count);
-            else count = 1;
-
             try {
-                blockEntity.setStack(slots.get(slot), new ItemStack(item, count));
+                blockEntity.setStack(slots.get(slot), new ItemStack(Objects.requireNonNull(item), RANDOM.nextInt(1, (chestItem.count + 1))));
             } catch (IndexOutOfBoundsException e) {
                 Main.LOGGER.warn("It is not possible to add the %s item to the chest because all slots are occupied!".formatted(chestItem.id));
                 break;

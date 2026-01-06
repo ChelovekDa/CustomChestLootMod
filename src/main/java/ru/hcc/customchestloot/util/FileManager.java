@@ -174,7 +174,13 @@ public class FileManager {
                 array = (JSONArray) node.get("items");
                 ArrayList<ChestItem> items = new ArrayList<>();
 
-                for (Object item : array) items.add(ChestItem.of(String.valueOf(item)));
+                ChestItem object;
+                for (Object item : array) {
+                    object = ChestItem.of(String.valueOf(item));
+
+                    if (object == null) Main.LOGGER.warn("Can't add '%s' to loot table because it returned a null source!".formatted(String.valueOf(item)));
+                    else items.add(object);
+                }
 
                 return new LootTable(chests, items, String.valueOf(loottableKey));
             }
@@ -206,7 +212,13 @@ public class FileManager {
             array = (JSONArray) node.get("items");
             ArrayList<ChestItem> items = new ArrayList<>();
 
-            for (Object item : array) items.add(ChestItem.of(String.valueOf(item)));
+            ChestItem object;
+            for (Object item : array) {
+                object = ChestItem.of(String.valueOf(item));
+
+                if (object == null) Main.LOGGER.warn("Can't add '%s' to loot table because it returned a null source!".formatted(String.valueOf(item)));
+                else items.add(object);
+            }
 
             result.add(new LootTable(chests, items, String.valueOf(loottableKey)));
         }

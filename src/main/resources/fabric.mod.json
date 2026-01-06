@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "customchestloot",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "name": "CustomChestLoot",
   "description": "Mod for changing chests loot",
   "authors": ["English (aka Horoshiy)"],

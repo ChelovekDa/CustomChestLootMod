@@ -1,8 +1,10 @@
 package ru.hcc.customchestloot.util;
 
+import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
+import java.util.Comparator;
 import java.util.Objects;
 
 
@@ -20,6 +22,12 @@ public class ChestItem {
     protected ChestItem(String id, float chance, byte count) {
         this.id = id;
         this.chance = chance;
+        this.count = count;
+    }
+
+    public ChestItem(ChestItem object, byte count) {
+        this.id = object.id;
+        this.chance = object.chance;
         this.count = count;
     }
 
@@ -43,7 +51,16 @@ public class ChestItem {
 
     @Nullable
     public static ChestItem of(String[] mas) {
-        if (isValid(mas[0])) return new ChestItem(mas[0], Float.parseFloat(mas[1]), Byte.parseByte(mas[2]));
+        if (isValid(mas[0])) {
+            ChestItem object = new ChestItem(mas[0], Float.parseFloat(mas[1]), Byte.parseByte(mas[2]));
+
+            Item item = Registries.ITEM.getOrEmpty(Identifier.tryParse(object.id)).orElse(null);
+            assert item != null;
+
+            if ((object.count > 1 && item.getDefaultStack().getMaxCount() == 1) || object.count < 1) object.count = 1;
+
+            return object;
+        }
         else return null;
     }
 
@@ -58,4 +75,5 @@ public class ChestItem {
                 .replace("]", "")
                 .split("="));
     }
+
 }
