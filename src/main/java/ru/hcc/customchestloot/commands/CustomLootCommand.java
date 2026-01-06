@@ -27,6 +27,9 @@ public class CustomLootCommand {
         CommandRegistrationCallback.EVENT.register(((dispatcher, registryAccess, environment) ->
                 dispatcher.register(CommandManager.literal("loottable").requires(source -> source.hasPermissionLevel(2))
 
+                .then(CommandManager.literal("list")
+                        .executes(this::listCommand))
+
                 .then(CommandManager.literal("create")
 
                     .then(CommandManager.argument("loottable_name", StringArgumentType.word())
@@ -61,7 +64,7 @@ public class CustomLootCommand {
                                                                         .then(CommandManager.argument("%s_z".formatted(Number.SECOND.getNumber()), IntegerArgumentType.integer())
                                                                                 .executes(context -> updateCommand(context, "region-flag"))))))))))
 
-                .then(CommandManager.literal("del")
+                .then(CommandManager.literal("delete")
 
                         .then(CommandManager.literal("-name")
 
@@ -86,6 +89,19 @@ public class CustomLootCommand {
                                                     .then(CommandManager.argument("%s_z".formatted(Number.SECOND.getNumber()), IntegerArgumentType.integer())
                                                         .executes(context -> deleteCommand(context, "region-flag"))))))))))
         )));
+    }
+
+    private int listCommand(CommandContext<ServerCommandSource> context) {
+        final ServerCommandSource source = context.getSource();
+        final ArrayList<String> names = fileManager.getLootTableNames();
+
+        if (!names.isEmpty()) {
+            source.sendMessage(Text.literal("§eСписок всех таблиц лута:"));
+            for (String name : fileManager.getLootTableNames()) source.sendMessage(Text.literal("§e- %s".formatted(name)));
+        }
+        else source.sendMessage(Text.literal("§cНе найдено ни одной таблицы!"));
+
+        return 0;
     }
 
     private int deleteCommand(CommandContext<ServerCommandSource> context, String flag) {
@@ -263,13 +279,16 @@ public class CustomLootCommand {
         String loottableName = StringArgumentType.getString(context, "loottable_name");
         final ServerWorld world = context.getSource().getWorld();
         final ServerCommandSource source = context.getSource();
+        final ArrayList<String> lootTablesName = fileManager.getLootTableNames();
 
-        if (fileManager.getLootTableNames().contains(loottableName)) {
-            context.getSource().sendMessage(Text.literal("§cНевозможно сохранить таблицу '%s', поскольку такая таблица уже существует!".formatted(loottableName)));
-            return -1;
+        LootTable lootTable;
+
+        if (lootTablesName.contains(loottableName)) {
+            source.sendMessage(Text.literal("§eДанная таблица уже существует, поэтому сундуки будут добавляться в уже созданную."));
+            lootTable = fileManager.getLootTable(loottableName);
         }
-
-        LootTable lootTable = new LootTable(loottableName);
+        else lootTable = new LootTable(loottableName);
+        assert lootTable != null;
 
         if (numbers.length == 1) {
             int[] cords = {
@@ -279,12 +298,12 @@ public class CustomLootCommand {
             };
 
             if (!world.getBlockState(new BlockPos(cords[0], cords[1], cords[2])).getBlock().equals(Blocks.CHEST)) {
-                context.getSource().sendMessage(Text.literal("§cНевозможно сохранить таблицу '%s', поскольку переданные координаты не содержат сундук! ".formatted(loottableName)));
+                source.sendMessage(Text.literal("§cНевозможно сохранить таблицу '%s', поскольку переданные координаты не содержат сундук! ".formatted(loottableName)));
                 return -1;
             }
 
             lootTable.chests.add(cords);
-            context.getSource().sendMessage(Text.literal("§aТаблица '%s' успешно сохранена с 1 сундуком!".formatted(lootTable.name)));
+            source.sendMessage(Text.literal("§aТаблица '%s' успешно сохранена с 1 сундуком!".formatted(lootTable.name)));
         }
         else {
             int[] first = {
@@ -332,7 +351,7 @@ public class CustomLootCommand {
                 }
             }
 
-            lootTable.chests = blocks;
+            lootTable.chests.addAll(blocks);
 
             if (count > 0) source.sendMessage(Text.literal("§aУспешно сохранены сундуки: %d.".formatted(count)));
             else source.sendMessage(Text.literal("§cНе было сохранено ни одного сундука!"));
