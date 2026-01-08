@@ -147,7 +147,6 @@ public class CustomLootCommand {
                 }
 
             case "region-flag":
-                System.out.println("cast");
 
                 int[] first = new int[] {
                         IntegerArgumentType.getInteger(context, "%s_x".formatted(Number.FIRST.getNumber())),
