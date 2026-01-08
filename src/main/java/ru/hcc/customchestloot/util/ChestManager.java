@@ -36,30 +36,37 @@ public class ChestManager extends FileManager {
 
     private static class ItemGenerator {
 
+        @NotNull
         private static ArrayList<ChestItem> generate(ArrayList<ChestItem> items, int slotsSize) {
             return setItemsCount(getCreateList(items, slotsSize), slotsSize);
         }
 
+        @NotNull
         private static ArrayList<ChestItem> setItemsCount(ArrayList<ChestItem> items, int slotsSize) {
             ArrayList<ChestItem> result = new ArrayList<>();
 
             byte amount = (byte) (((byte) slotsSize) - ((byte) items.size()));
 
-            if (amount <= 0) return items;
+            if (amount <= 0 || items.isEmpty()) return items;
 
             items.sort(Comparator.comparingInt(item -> item.count));
             Collections.reverse(items);
+
+            float totalWeight = 0.0f;
+            for (ChestItem item : items) totalWeight += item.chance;
+
+            byte chance;
+            if (items.size() > 20 && totalWeight >= 1) chance = 5;
+            else chance = 6;
 
             for (ChestItem chestItem : items) {
                 if (amount >= 1) {
                     if (chestItem.count <= 2) result.add(chestItem);
                     else {
-                        int chance = RANDOM.nextInt(1, 11);
-
-                        if (chance <= 7) {
+                        if (RANDOM.nextInt(10) <= chance) {
                             byte count;
 
-                            if (chestItem.count % 3 == 0) {
+                            if (chestItem.count % 3 == 0 && amount >= 2) {
                                 count = (byte) (chestItem.count / 3);
                                 for (int i = 0; i < 3; i++) result.add(new ChestItem(chestItem, count));
                                 amount -= 2;
@@ -87,8 +94,8 @@ public class ChestManager extends FileManager {
             }
 
             int removingSize = result.size() - slotsSize;
-            if (removingSize > 0) {
-                while (removingSize > 0) {
+            if (removingSize >= 5) {
+                while (removingSize >= 5) {
                     result = setItemsCount(result, slotsSize);
                     removingSize = result.size() - slotsSize;
                 }
@@ -99,6 +106,7 @@ public class ChestManager extends FileManager {
             return result;
         }
 
+        @NotNull
         private static ArrayList<ChestItem> getCreateList(ArrayList<ChestItem> items, int slotsSize) {
             ArrayList<ChestItem> results = new ArrayList<>();
 
@@ -110,7 +118,10 @@ public class ChestManager extends FileManager {
             if (nullItem.chance <= 0) nullItem.chance = 0.99f;
             items.add(nullItem);
 
-            for (int i = 0; i < items.size(); i++) {
+            int limit = items.size();
+            if (limit >= 35 && totalWeight >= 1) limit = 18;
+
+            for (int i = 0; i < limit; i++) {
                 totalWeight = 0.0f;
                 for (ChestItem item : items) totalWeight += item.chance;
 

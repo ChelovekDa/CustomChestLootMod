@@ -6,7 +6,6 @@ import org.jetbrains.annotations.Nullable;
 import org.json.simple.*;
 import org.json.simple.parser.JSONParser;
 import ru.hcc.customchestloot.Main;
-import tools.jackson.databind.ObjectMapper;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -16,13 +15,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 
-public class FileManager {
-
-    protected static String prettyPrinting(JSONObject object) {
-        ObjectMapper mapper = new ObjectMapper();
-        Object json = mapper.readValue(object.toJSONString(), Object.class);
-        return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
-    }
+public class FileManager extends JsonSimpleFormatter {
 
     protected static Path getModsConfigDirectory() {
         Path path = FabricLoader.getInstance().getConfigDir().resolve(Main.ID);
@@ -63,10 +56,7 @@ public class FileManager {
 
             if (map.isEmpty() || !map.containsKey(table.name)) map.put(table.name, table.toJSON());
 
-            FileWriter writer = new FileWriter(getModsConfigDirectory().resolve(FileName.REGIONS_DATA.getFileName()).toFile(), false);
-            writer.write(prettyPrinting(new JSONObject(map)));
-            writer.flush();
-
+            writeJson(new JSONObject(map), new FileWriter(getModsConfigDirectory().resolve(FileName.REGIONS_DATA.getFileName()).toFile(), false));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -78,11 +68,7 @@ public class FileManager {
             for (LootTable lootTable : getAllLootTables()) {
                 if (!lootTable.name.equals(name)) map.put(lootTable.name, lootTable.toJSON());
             }
-
-            FileWriter writer = new FileWriter(getModsConfigDirectory().resolve(FileName.REGIONS_DATA.getFileName()).toFile(), false);
-            writer.write(prettyPrinting(new JSONObject(map)));
-            writer.flush();
-
+            writeJson(new JSONObject(map), new FileWriter(getModsConfigDirectory().resolve(FileName.REGIONS_DATA.getFileName()).toFile(), false));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

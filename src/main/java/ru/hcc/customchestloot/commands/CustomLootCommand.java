@@ -132,7 +132,7 @@ public class CustomLootCommand {
                         if (fileManager.isCordsExisting(cords, lootTable.name)) {
                             for (int[] chest : lootTable.chests) {
                                 if (chest[0] == cords[0] && chest[1] == cords[1] && chest[2] == cords[2]) {
-                                    System.out.println(lootTable.chests.remove(chest));
+                                    lootTable.chests.remove(chest);
                                     fileManager.saveLT(lootTable);
                                     context.getSource().sendMessage(Text.literal("§aСундук на %d %d %d успешно удален!".formatted(cords[0], cords[1], cords[2])));
                                     return 0;
@@ -147,6 +147,8 @@ public class CustomLootCommand {
                 }
 
             case "region-flag":
+                System.out.println("cast");
+
                 int[] first = new int[] {
                         IntegerArgumentType.getInteger(context, "%s_x".formatted(Number.FIRST.getNumber())),
                         IntegerArgumentType.getInteger(context, "%s_y".formatted(Number.FIRST.getNumber())),
@@ -204,8 +206,8 @@ public class CustomLootCommand {
                 String name = StringArgumentType.getString(context, "name");
 
                 if (fileManager.getLootTableNames().contains(name)) {
-                    context.getSource().sendMessage(Text.literal("§aТаблица '%s' успешно обновлена!".formatted(name)));
                     context.getSource().sendMessage(Text.literal(new ChestManager().updateChests(Objects.requireNonNull(fileManager.getLootTable(name)), world)));
+                    context.getSource().sendMessage(Text.literal("§aТаблица '%s' успешно обновлена!".formatted(name)));
                     return 0;
                 }
                 else {

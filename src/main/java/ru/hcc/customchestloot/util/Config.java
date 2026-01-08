@@ -26,9 +26,8 @@ public class Config extends FileManager {
             Path path = getModsConfigDirectory().resolve(FileName.CONFIG.getFileName());
             if (!Files.exists(path)) new File(path.toString()).createNewFile();
 
-            FileWriter writer = new FileWriter(path.toString());
-            writer.write(prettyPrinting(new JSONObject(this.cfg)));
-            writer.flush();
+            writeJson(new JSONObject(this.cfg), new FileWriter(path.toString()));
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
